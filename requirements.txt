@@ -1,0 +1,25 @@
+# LLM & Orchestration
+langchain==0.3.25
+langchain-community==0.3.24
+langchain-groq==0.3.2
+langgraph==0.4.8
+
+# Embeddings & Vector Store
+chromadb==1.0.9
+sentence-transformers==3.4.1
+
+# BM25 Retrieval
+rank_bm25==0.2.2
+
+# Web Search Fallback
+tavily-python==0.5.1
+
+# API & Frontend
+fastapi==0.115.9
+uvicorn==0.34.2
+streamlit==1.45.1
+
+# Utilities
+python-dotenv==1.1.0
+pypdf==5.4.0
+pydantic==2.11.4
