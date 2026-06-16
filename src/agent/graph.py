@@ -13,7 +13,7 @@ from langgraph.graph import StateGraph, END
 
 from src.retrieval.retriever import HybridRetriever
 from src.retrieval.rag_chain import generate_answer
-from src.agent.graders import filter_relevant_docs, grade_answer_faithfulness
+from src.agent.graders import filter_relevant_docs, grade_answer_faithfulness, rewrite_query_with_history
 from src.agent.web_search import web_search
 
 load_dotenv()
@@ -24,6 +24,8 @@ load_dotenv()
 # ─────────────────────────────────────────────
 class AgentState(TypedDict):
     question: str                          # The user's question
+    search_query: str                      # Rewritten standalone query for retrieval
+    chat_history: List[dict]               # Previous Q&A pairs in this session
     documents: List[Document]              # Retrieved/filtered documents
     answer: str                            # Generated answer
     sources: List[str]                     # Source citations
@@ -40,8 +42,13 @@ def retrieve_node(state: AgentState, retriever: HybridRetriever) -> AgentState:
     """Node 1: Retrieve documents from ChromaDB."""
     print("\n📥 [Node: Retrieve]")
     question = state["question"]
-    docs = retriever.retrieve(question)
-    return {**state, "documents": docs}
+    chat_history = state.get("chat_history", [])
+
+    # Rewrite follow-up questions into standalone questions using history
+    search_query = rewrite_query_with_history(question, chat_history)
+
+    docs = retriever.retrieve(search_query)
+    return {**state, "documents": docs, "search_query": search_query}
 
 
 def grade_documents_node(state: AgentState) -> AgentState:
@@ -58,7 +65,7 @@ def grade_documents_node(state: AgentState) -> AgentState:
 def web_search_node(state: AgentState) -> AgentState:
     """Node 3: Fall back to web search (only triggered if docs are bad)."""
     print("\n🌐 [Node: Web Search Fallback]")
-    question = state["question"]
+    question = state.get("search_query") or state["question"]
     web_docs = web_search(question, max_results=3)
 
     # Combine with any surviving local docs
@@ -67,14 +74,14 @@ def web_search_node(state: AgentState) -> AgentState:
 
     return {**state, "documents": all_docs, "used_web_search": True}
 
-
 def generate_node(state: AgentState) -> AgentState:
     """Node 4: Generate answer using LLM + retrieved context."""
     print("\n🤖 [Node: Generate Answer]")
     question = state["question"]
     docs = state["documents"]
+    chat_history = state.get("chat_history", [])
 
-    result = generate_answer(question, docs)
+    result = generate_answer(question, docs, chat_history)
 
     return {
         **state,
@@ -195,24 +202,32 @@ def build_agent(retriever: HybridRetriever):
     )
 
     # Compile the graph
-    agent = workflow.compile()
-    print("✅ LangGraph agent compiled successfully")
+    from langgraph.checkpoint.memory import MemorySaver
+    memory = MemorySaver()
+    agent = workflow.compile(checkpointer=memory)
+    print("✅ LangGraph agent compiled successfully (with memory)")
     return agent
+
 
 
 # ─────────────────────────────────────────────
 # MAIN RUN FUNCTION
 # ─────────────────────────────────────────────
 
-def run_agent(question: str, retriever: HybridRetriever) -> dict:
+def run_agent(question: str, retriever: HybridRetriever, agent=None, thread_id: str = "default") -> dict:
     """
     Runs the full agentic RAG pipeline for a question.
+    
+    thread_id: identifies a conversation session. Same thread_id = 
+    the agent remembers previous messages in that conversation.
     """
-    agent = build_agent(retriever)
+    if agent is None:
+        agent = build_agent(retriever)
 
     # Initial state
     initial_state = AgentState(
         question=question,
+        chat_history=[],
         documents=[],
         answer="",
         sources=[],
@@ -221,12 +236,15 @@ def run_agent(question: str, retriever: HybridRetriever) -> dict:
         generation_faithful=False
     )
 
+    # Config tells LangGraph which conversation thread this belongs to
+    config = {"configurable": {"thread_id": thread_id}}
+
     print(f"\n{'='*50}")
     print(f"🚀 Agent starting for: '{question}'")
     print(f"{'='*50}")
 
     # Run the graph
-    final_state = agent.invoke(initial_state)
+    final_state = agent.invoke(initial_state, config=config)
 
     # Print final result
     print(f"\n{'='*50}")
@@ -237,4 +255,4 @@ def run_agent(question: str, retriever: HybridRetriever) -> dict:
     print(f"🌐 Used web search: {final_state['used_web_search']}")
     print(f"🔁 Retry count: {final_state['retry_count']}")
 
-    return final_state
+    return final_state, agent

@@ -9,6 +9,41 @@ from langchain.prompts import ChatPromptTemplate
 
 load_dotenv()
 
+QUERY_REWRITE_PROMPT = ChatPromptTemplate.from_template("""
+Given the conversation history and a follow-up question, rewrite the follow-up question 
+into a standalone question that includes all necessary context.
+
+If the follow-up question is already standalone (doesn't depend on history), return it unchanged.
+
+CONVERSATION HISTORY:
+{chat_history}
+
+FOLLOW-UP QUESTION:
+{question}
+
+STANDALONE QUESTION (reply with ONLY the rewritten question, nothing else):
+""")
+
+
+def rewrite_query_with_history(question: str, chat_history: list) -> str:
+    """
+    Rewrites a follow-up question (like "explain more") into a 
+    standalone question using conversation history.
+    """
+    if not chat_history:
+        return question
+
+    from src.retrieval.rag_chain import format_chat_history
+
+    llm = ChatGroq(model="llama-3.3-70b-versatile", temperature=0, max_tokens=100)
+    history_text = format_chat_history(chat_history)
+
+    prompt = QUERY_REWRITE_PROMPT.format(chat_history=history_text, question=question)
+    response = llm.invoke(prompt)
+    rewritten = response.content.strip()
+
+    print(f"🔄 Rewrote query: '{question}' → '{rewritten}'")
+    return rewritten
 
 def get_grader_llm():
     """Small, fast model just for grading tasks."""
