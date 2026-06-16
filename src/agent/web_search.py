@@ -36,7 +36,7 @@ def web_search(query: str, max_results: int = 3) -> List[Document]:
 
         docs = []
         for result in response.get("results", []):
-            print(f"🔎 DEBUG Tavily result → title: {result.get('title')!r}, url: {result.get('url')!r}")
+            #print(f"🔎 DEBUG Tavily result → title: {result.get('title')!r}, url: {result.get('url')!r}")
             doc = Document(
                 page_content=result.get("content", ""),
                 metadata={

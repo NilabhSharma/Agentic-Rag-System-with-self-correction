@@ -108,7 +108,7 @@ def generate_answer(question: str, docs: List[Document], chat_history: list = No
         
         if label and label not in sources:
             sources.append(label)
-    print(f"🔎 DEBUG final sources list: {sources}")
+    #print(f"🔎 DEBUG final sources list: {sources}")
 
     return {
         "answer": response.content,
