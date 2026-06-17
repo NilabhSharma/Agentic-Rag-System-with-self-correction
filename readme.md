@@ -128,7 +128,7 @@ agentic-rag/
 ### 1. Clone and create a virtual environment
 
 ```bash
-git clone <your-repo-url>
+git clone <https://github.com/NilabhSharma/Agentic-Rag-System-with-self-correction>
 cd agentic-rag
 python -m venv venv
 ```
