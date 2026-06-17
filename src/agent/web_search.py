@@ -17,11 +17,11 @@ def web_search(query: str, max_results: int = 3) -> List[Document]:
     Returns results as LangChain Document objects
     so the rest of the pipeline can treat them the same way.
     """
-    print(f"🌐 Falling back to web search for: '{query}'")
+    print(f"-- Falling back to web search for: '{query}'")
 
     api_key = os.getenv("TAVILY_API_KEY")
     if not api_key:
-        print("❌ TAVILY_API_KEY not found in .env")
+        print("-- TAVILY_API_KEY not found in .env")
         return []
 
     client = TavilyClient(api_key=api_key)
@@ -30,8 +30,8 @@ def web_search(query: str, max_results: int = 3) -> List[Document]:
         response = client.search(
             query=query,
             max_results=max_results,
-            include_answer=False,        # We want raw results, not Tavily's answer
-            include_raw_content=False,   # Summaries are enough
+            include_answer=False,        
+            include_raw_content=False,   
         )
 
         docs = []
@@ -42,14 +42,14 @@ def web_search(query: str, max_results: int = 3) -> List[Document]:
                 metadata={
                     "source": result.get("url", "Web Search"),
                     "title": result.get("title", ""),
-                    "type": "web_search"   # Tag so we know it came from web
+                    "type": "web_search"   
                 }
             )
             docs.append(doc)
 
-        print(f"✅ Web search returned {len(docs)} results")
+        print(f"-- Web search returned {len(docs)} results")
         return docs
 
     except Exception as e:
-        print(f"❌ Web search error: {e}")
+        print(f"-- Web search error: {e}")
         return []

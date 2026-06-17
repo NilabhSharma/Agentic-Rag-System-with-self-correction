@@ -1,4 +1,3 @@
-# src/api/main.py
 
 import sys
 import os
@@ -14,38 +13,25 @@ from src.retrieval.retriever import HybridRetriever
 from src.agent.graph import build_agent, run_agent, AgentState
 
 app = FastAPI(title="Agentic RAG API")
-
-# ─────────────────────────────────────────────
-# GLOBAL STATE (loaded once on startup)
-# ─────────────────────────────────────────────
 retriever = None
 agent = None
-
-# Store chat history per session (in-memory — resets if server restarts)
 session_histories: Dict[str, List[dict]] = {}
-
 
 @app.on_event("startup")
 def startup_event():
     """Runs once when the API server starts."""
     global retriever, agent
 
-    print("🔧 Initializing RAG pipeline...")
+    print("-- Initializing RAG pipeline...")
     documents = load_documents("./data/documents")
     chunks = split_documents(documents)
     retriever = HybridRetriever(chunks=chunks, k=4)
     agent = build_agent(retriever)
-    print("✅ API ready!")
-
-
-# ─────────────────────────────────────────────
-# REQUEST / RESPONSE MODELS
-# ─────────────────────────────────────────────
+    print("-- API ready!")
 
 class QueryRequest(BaseModel):
     question: str
-    session_id: Optional[str] = None   # If not provided, a new session is created
-
+    session_id: Optional[str] = None  
 
 class QueryResponse(BaseModel):
     answer: str
@@ -54,11 +40,6 @@ class QueryResponse(BaseModel):
     retry_count: int
     session_id: str
 
-
-# ─────────────────────────────────────────────
-# ROUTES
-# ─────────────────────────────────────────────
-
 @app.get("/")
 def root():
     return {"status": "Agentic RAG API is running", "docs": "/docs"}
@@ -66,19 +47,9 @@ def root():
 
 @app.post("/ask", response_model=QueryResponse)
 def ask_question(request: QueryRequest):
-    """
-    Main endpoint — ask a question, get an agentic RAG answer.
-    Supports multi-turn via session_id.
-    """
     global retriever, agent, session_histories
-
-    # Create a new session ID if none provided
     session_id = request.session_id or str(uuid.uuid4())
-
-    # Get this session's chat history (or empty list if new)
     chat_history = session_histories.get(session_id, [])
-
-    # Build initial state
     initial_state = AgentState(
         question=request.question,
         search_query="",
@@ -94,7 +65,6 @@ def ask_question(request: QueryRequest):
     config = {"configurable": {"thread_id": session_id}}
     final_state = agent.invoke(initial_state, config=config)
 
-    # Update chat history for this session
     chat_history.append({
         "question": request.question,
         "answer": final_state["answer"]
