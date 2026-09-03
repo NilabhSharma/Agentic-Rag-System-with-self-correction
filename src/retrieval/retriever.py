@@ -1,4 +1,3 @@
-# src/retrieval/retriever.py
 
 from typing import List, Tuple
 from langchain.schema import Document

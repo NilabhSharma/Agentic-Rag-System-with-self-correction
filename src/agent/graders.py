@@ -25,10 +25,6 @@ STANDALONE QUESTION (reply with ONLY the rewritten question, nothing else):
 """)
 
 def rewrite_query_with_history(question: str, chat_history: list) -> str:
-    """
-    Rewrites a follow-up question (like "explain more") into a 
-    standalone question using conversation history.
-    """
     if not chat_history:
         return question
 
